@@ -2781,6 +2781,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio_freeze_bug"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "iroh-quinn",
+ "iroh-quinn-proto",
+ "rand",
+ "rcgen",
+ "rustls",
+ "tokio",
+]
+
+[[package]]
 name = "tonic"
 version = "0.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
