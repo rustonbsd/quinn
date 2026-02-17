@@ -2230,6 +2230,7 @@ impl Connection {
             match timer {
                 Timer::Conn(timer) => match timer {
                     ConnTimer::Close => {
+                        warn!("[HANDLE_TIMEOUT] ConnTimer::Close fired err passed to move_to_drained: None");
                         self.state.move_to_drained(None);
                         self.endpoint_events.push_back(EndpointEventInner::Drained);
                     }
@@ -4191,6 +4192,7 @@ impl Connection {
                     self.stats.frame_rx.record(frame.ty());
 
                     if let Frame::Close(_error) = frame {
+                        warn!("[PROCESS_DECRYPTED_PACKET] call to move_to_draining with not passed error: {:?}", _error);
                         self.state.move_to_draining(None);
                         break;
                     }

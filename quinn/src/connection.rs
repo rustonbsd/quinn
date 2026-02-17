@@ -271,7 +271,12 @@ impl Future for ConnectionDriver {
         let mut keep_going = conn.drive_transmit(cx)?;
         // If a timer expires, there might be more to transmit. When we transmit something, we
         // might need to reset a timer. Hence, we must loop until neither happens.
+        let timer_drained_reason = conn.inner.is_drained();
         keep_going |= conn.drive_timer(cx);
+        if !timer_drained_reason && conn.inner.is_drained() {
+            tracing::warn!("[ConnectionDriver] drive_timer caused drain, error SHOULD NOT BE NONE error: {:?}", conn.error);
+        }
+
         conn.forward_endpoint_events();
         conn.forward_app_events(&self.0.shared);
 

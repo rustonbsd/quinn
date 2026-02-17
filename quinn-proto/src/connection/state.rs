@@ -73,7 +73,10 @@ impl State {
             let error = match &mut self.inner {
                 InnerState::Draining { error, .. } => error.take(),
                 InnerState::Drained { .. } => panic!("invalid state transition drained -> drained"),
-                InnerState::Closed { error_read, .. } if *error_read => None,
+                InnerState::Closed { error_read, .. } if *error_read => {
+                    tracing::warn!("[MOVE_TO_DRAINED] closed with error_read {:?}", self.inner);
+                    None
+                },
                 InnerState::Closed { remote_reason, .. } => {
                     let error = match remote_reason.clone().into() {
                         ConnectionError::ConnectionClosed(close) => {
@@ -91,7 +94,10 @@ impl State {
                     };
                     Some(error)
                 }
-                InnerState::Handshake(_) | InnerState::Established => None,
+                InnerState::Handshake(_) | InnerState::Established => {
+                    tracing::warn!("[MOVE_TO_DRAINED] handshake or established: {:?}", self.inner);
+                    None
+                },
             };
             (error, self.is_local_close())
         };
