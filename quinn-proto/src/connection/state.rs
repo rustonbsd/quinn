@@ -71,7 +71,10 @@ impl State {
             (Some(error), false)
         } else {
             let error = match &mut self.inner {
-                InnerState::Draining { error, .. } => error.take(),
+                InnerState::Draining { error, .. } => {
+                    tracing::warn!("[MOVE_TO_DRAINED] draining with error {:?}", error);
+                    error.take()
+                },
                 InnerState::Drained { .. } => panic!("invalid state transition drained -> drained"),
                 InnerState::Closed { error_read, .. } if *error_read => {
                     tracing::warn!("[MOVE_TO_DRAINED] closed with error_read {:?}", self.inner);
@@ -118,6 +121,9 @@ impl State {
             self.as_type()
         );
         let is_local = self.is_local_close();
+        if error.is_none() {
+            tracing::warn!("[MOVE_TO_DRAINING] no error provided, local close: {}, inner_before: {:?}", is_local, self.inner);
+        }
         self.inner = InnerState::Draining { error, is_local };
         trace!("connection state: draining");
     }
