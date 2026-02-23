@@ -72,12 +72,12 @@ impl State {
         } else {
             let error = match &mut self.inner {
                 InnerState::Draining { error, .. } => {
-                    tracing::warn!("[MOVE_TO_DRAINED] draining with error {:?}", error);
+                    tracing::warn!(target: "condriver-unreachable" ,"[MOVE_TO_DRAINED] draining with error {:?}", error);
                     error.take()
                 },
                 InnerState::Drained { .. } => panic!("invalid state transition drained -> drained"),
                 InnerState::Closed { error_read, .. } if *error_read => {
-                    tracing::warn!("[MOVE_TO_DRAINED] closed with error_read {:?}", self.inner);
+                    tracing::warn!(target: "condriver-unreachable" ,"[MOVE_TO_DRAINED] closed with error_read {:?}", self.inner);
                     None
                 },
                 InnerState::Closed { remote_reason, .. } => {
@@ -98,7 +98,7 @@ impl State {
                     Some(error)
                 }
                 InnerState::Handshake(_) | InnerState::Established => {
-                    tracing::warn!("[MOVE_TO_DRAINED] handshake or established: {:?}", self.inner);
+                    tracing::warn!(target: "condriver-unreachable" ,"[MOVE_TO_DRAINED] handshake or established: {:?}", self.inner);
                     None
                 },
             };
@@ -122,7 +122,7 @@ impl State {
         );
         let is_local = self.is_local_close();
         if error.is_none() {
-            tracing::warn!("[MOVE_TO_DRAINING] no error provided, local close: {}, inner_before: {:?}", is_local, self.inner);
+            tracing::warn!(target: "condriver-unreachable" ,"[MOVE_TO_DRAINING] no error provided, local close: {}, inner_before: {:?}", is_local, self.inner);
         }
         self.inner = InnerState::Draining { error, is_local };
         trace!("connection state: draining");
@@ -233,6 +233,7 @@ impl State {
     pub(super) fn take_error(&mut self) -> Option<ConnectionError> {
         match &mut self.inner {
             InnerState::Draining { error, is_local } => {
+                tracing::debug!(target: "condriver-unreachable" ,"[QUINN-STATE] take_error draining, error: {:?}, is_local: {}, returning {:?}", error, is_local, if !*is_local { error.as_ref() } else { None });
                 if !*is_local {
                     error.take()
                 } else {
@@ -240,6 +241,7 @@ impl State {
                 }
             }
             InnerState::Drained { error, is_local } => {
+                tracing::debug!(target: "condriver-unreachable" ,"[QUINN-STATE] take_error drained, error: {:?}, is_local: {}, returning {:?}", error, is_local, if !*is_local { error.as_ref() } else { None });
                 if !*is_local {
                     error.take()
                 } else {
@@ -251,7 +253,7 @@ impl State {
                 is_local: local_reason,
                 error_read,
             } => {
-                if *error_read {
+                let res = if *error_read {
                     None
                 } else {
                     *error_read = true;
@@ -260,9 +262,14 @@ impl State {
                     } else {
                         Some(remote_reason.clone().into())
                     }
-                }
+                };
+                tracing::debug!(target: "condriver-unreachable" ,"[QUINN-STATE] take_error closed, remote_reason: {:?}, local_reason: {}, error_read: {}, returning {:?}", remote_reason, local_reason, error_read, res);
+                res
             }
-            InnerState::Handshake(_) | InnerState::Established => None,
+            InnerState::Handshake(_) | InnerState::Established => {
+                tracing::debug!(target: "condriver-unreachable" ,"[QUINN-STATE] take_error handshake or established, returning None");
+                None
+            },
         }
     }
 

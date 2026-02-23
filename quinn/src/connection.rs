@@ -275,14 +275,14 @@ impl Future for ConnectionDriver {
         keep_going |= conn.drive_timer(cx);
         let mut p = false;
         if !timer_drained_reason && conn.inner.is_drained() {
-            tracing::warn!("[ConnectionDriver] drive_timer_1 caused drain, error SHOULD NOT BE NONE error: {:?};  is drained: true", conn.error);
+            tracing::warn!(target: "condriver-unreachable" ,"[ConnectionDriver] drive_timer_1 caused drain, error SHOULD NOT BE NONE error: {:?};  is drained: true", conn.error);
             p = true;
         }
 
         conn.forward_endpoint_events();
         conn.forward_app_events(&self.0.shared);
         if p {
-            tracing::warn!("[ConnectionDriver] drive_timer_2 caused drain, error SHOULD NOT BE NONE error: {:?}; is drained: {}", conn.error, conn.inner.is_drained());
+            tracing::warn!(target: "condriver-unreachable" ,"[ConnectionDriver] drive_timer_2 caused drain, error SHOULD NOT BE NONE error: {:?}; is drained: {}", conn.error, conn.inner.is_drained());
         }
 
         if !conn.inner.is_drained() {
@@ -1521,6 +1521,11 @@ impl State {
     fn forward_app_events(&mut self, shared: &Shared) {
         while let Some(event) = self.inner.poll() {
             use proto::Event::*;
+
+            if self.error.is_none() && self.inner.is_drained(){
+                tracing::debug!(target: "condriver-unreachable", "[CONNNECTION] forward_app_events: connection is drained, setting error: event={:?}", event);
+            }
+
             match event {
                 HandshakeDataReady => {
                     if let Some(x) = self.on_handshake_data.take() {
