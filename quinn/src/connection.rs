@@ -268,7 +268,11 @@ impl Future for ConnectionDriver {
             conn.terminate(e, &self.0.shared);
             return Poll::Ready(Ok(()));
         }
+        tracing::debug!(target: "condriver-unreachable" ,"[ConnectionDriver] drive_timer_-1 caused drain, error SHOULD NOT BE NONE error: {:?};  is drained: true", conn.error);
+
         let mut keep_going = conn.drive_transmit(cx)?;
+        tracing::debug!(target: "condriver-unreachable" ,"[ConnectionDriver] drive_timer_0 caused drain, error SHOULD NOT BE NONE error: {:?};  is drained: true", conn.error);
+
         // If a timer expires, there might be more to transmit. When we transmit something, we
         // might need to reset a timer. Hence, we must loop until neither happens.
         let timer_drained_reason = conn.inner.is_drained();
