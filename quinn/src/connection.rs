@@ -273,12 +273,17 @@ impl Future for ConnectionDriver {
         // might need to reset a timer. Hence, we must loop until neither happens.
         let timer_drained_reason = conn.inner.is_drained();
         keep_going |= conn.drive_timer(cx);
+        let mut p = false;
         if !timer_drained_reason && conn.inner.is_drained() {
-            tracing::warn!("[ConnectionDriver] drive_timer caused drain, error SHOULD NOT BE NONE error: {:?}", conn.error);
+            tracing::warn!("[ConnectionDriver] drive_timer_1 caused drain, error SHOULD NOT BE NONE error: {:?};  is drained: true", conn.error);
+            p = true;
         }
 
         conn.forward_endpoint_events();
         conn.forward_app_events(&self.0.shared);
+        if p {
+            tracing::warn!("[ConnectionDriver] drive_timer_2 caused drain, error SHOULD NOT BE NONE error: {:?}; is drained: {}", conn.error, conn.inner.is_drained());
+        }
 
         if !conn.inner.is_drained() {
             if keep_going {
