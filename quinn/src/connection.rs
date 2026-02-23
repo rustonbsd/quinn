@@ -264,14 +264,16 @@ impl Future for ConnectionDriver {
         let span = debug_span!("drive", id = conn.handle.0);
         let _guard = span.enter();
 
+        tracing::warn!(target: "condriver-unreachable" ,"[ConnectionDriver] drive_timer_-2 caused drain, error SHOULD NOT BE NONE error: {:?}; inner: {:?}; is drained: {}, {:?}", conn.error, conn.inner, conn.inner.is_drained(), conn);
+
         if let Err(e) = conn.process_conn_events(&self.0.shared, cx) {
             conn.terminate(e, &self.0.shared);
             return Poll::Ready(Ok(()));
         }
-        tracing::debug!(target: "condriver-unreachable" ,"[ConnectionDriver] drive_timer_-1 caused drain, error SHOULD NOT BE NONE error: {:?};  is drained: true", conn.error);
+        tracing::warn!(target: "condriver-unreachable" ,"[ConnectionDriver] drive_timer_-1 caused drain, error SHOULD NOT BE NONE error: {:?}; inner: {:?}; is drained: {}, {:?}", conn.error, conn.inner, conn.inner.is_drained(), conn);
 
         let mut keep_going = conn.drive_transmit(cx)?;
-        tracing::debug!(target: "condriver-unreachable" ,"[ConnectionDriver] drive_timer_0 caused drain, error SHOULD NOT BE NONE error: {:?};  is drained: true", conn.error);
+        tracing::warn!(target: "condriver-unreachable" ,"[ConnectionDriver] drive_timer_0 caused drain, error SHOULD NOT BE NONE error: {:?}; inner: {:?}; is drained: {}, {:?}", conn.error, conn.inner, conn.inner.is_drained(), conn);
 
         // If a timer expires, there might be more to transmit. When we transmit something, we
         // might need to reset a timer. Hence, we must loop until neither happens.
@@ -279,14 +281,14 @@ impl Future for ConnectionDriver {
         keep_going |= conn.drive_timer(cx);
         let mut p = false;
         if !timer_drained_reason && conn.inner.is_drained() {
-            tracing::warn!(target: "condriver-unreachable" ,"[ConnectionDriver] drive_timer_1 caused drain, error SHOULD NOT BE NONE error: {:?};  is drained: true", conn.error);
+            tracing::warn!(target: "condriver-unreachable" ,"[ConnectionDriver] drive_timer_1 caused drain, error SHOULD NOT BE NONE error: {:?}; inner: {:?}; is drained: {}, {:?}", conn.error, conn.inner, conn.inner.is_drained(), conn);
             p = true;
         }
 
         conn.forward_endpoint_events();
         conn.forward_app_events(&self.0.shared);
         if p {
-            tracing::warn!(target: "condriver-unreachable" ,"[ConnectionDriver] drive_timer_2 caused drain, error SHOULD NOT BE NONE error: {:?}; is drained: {}", conn.error, conn.inner.is_drained());
+            tracing::warn!(target: "condriver-unreachable" ,"[ConnectionDriver] drive_timer_2 caused drain, error SHOULD NOT BE NONE error: {:?}; inner: {:?}; is drained: {}, {:?}", conn.error, conn.inner, conn.inner.is_drained(), conn);
         }
 
         if !conn.inner.is_drained() {
@@ -1355,7 +1357,7 @@ pub(crate) struct State {
     pub(crate) blocked_readers: FxHashMap<StreamId, Waker>,
     pub(crate) stopped: FxHashMap<StreamId, Arc<Notify>>,
     /// Always set to Some before the connection becomes drained
-    pub(crate) error: Option<ConnectionError>,
+    pub error: Option<ConnectionError>,
     /// Tracks paths being opened
     open_path: FxHashMap<PathId, watch::Sender<Result<(), PathError>>>,
     /// Tracks reference counts for paths, i.e. how many [`Path`] and [`WeakPathHandle`] structs are alive for a path
@@ -1494,7 +1496,9 @@ impl State {
         cx: &mut Context<'_>,
     ) -> Result<(), ConnectionError> {
         loop {
-            match self.conn_events.poll_recv(cx) {
+            let recv = self.conn_events.poll_recv(cx);
+            tracing::debug!(target: "condriver-unreachable", "[CONNNECTION] process_conn_events: poll_recv={:?}", recv);
+            match recv {
                 Poll::Ready(Some(ConnectionEvent::Rebind(sender))) => {
                     self.sender = sender;
                     self.inner.handle_network_change(None, self.runtime.now());
@@ -1516,6 +1520,7 @@ impl State {
                     )));
                 }
                 Poll::Pending => {
+                    tracing::debug!(target: "condriver-unreachable", "[CONNNECTION] process_conn_events: poll_recv=Pending returned");
                     return Ok(());
                 }
             }
